@@ -1,0 +1,92 @@
+version: "3.8"
+
+services:
+  recipe-service:
+    build:
+      context: ./recipe-service
+      dockerfile: Dockerfile
+    ports:
+      - "3002:3002"
+    environment:
+      - DB_HOST=recipe-db
+      - DB_USER=postgres
+      - DB_PASSWORD=123456
+      - DB_NAME=recipedb
+      - APP_ENV=docker
+    depends_on:
+      - recipe-db
+    healthcheck:
+      test: ["CMD", "pg_isready", "--host=recipe-db", "--username=postgres", "--dbname=recipedb"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 5s
+    command: bash -c "php artisan migrate && php -S 0.0.0.0:3002 -t public"
+    networks:
+      - my-network
+
+
+  rating-service:
+    build:
+      context: ./rating-service
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=rating-db
+      - DB_USER=root
+      - DB_PASSWORD=root
+      - DB_NAME=rating-db
+    depends_on:
+      - rating-db
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--host=rating-db", "--user=root", "--password=root"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 60s
+    networks:
+      - my-network
+
+
+  recipe-db:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: postgres  
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: recipedb
+    volumes:
+      - recipe-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "--host=localhost", "--username=postgres", "--dbname=recipedb"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 5s
+    networks:
+      - my-network
+
+
+  rating-db:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=rating-db
+    volumes:
+      - rating-db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "--host=127.0.0.1", "--user=root", "--password=root"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 30s
+    networks:
+      - my-network
+
+volumes:
+  recipe-db-data:
+  rating-db-data:
+
+networks:
+  my-network:
+    driver: bridge
